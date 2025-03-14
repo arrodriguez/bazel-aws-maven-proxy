@@ -84,7 +84,7 @@ maven_install(
         # Your Maven dependencies here
     ],
     repositories = [
-        "http://localhost:9000/",  # Our S3 proxy
+        "http://localhost:8888/",  # Our S3 proxy
         "https://repo1.maven.org/maven2",  # Fallback to Maven Central
     ],
 )
