@@ -2,7 +2,7 @@
 # login.sh - Helper script for AWS SSO login
 
 # Get AWS profile from command line or use default
-AWS_PROFILE=${1:-default}
+AWS_PROFILE=${1:-bazel-cache}
 
 echo "===== AWS SSO Login Helper ====="
 echo "Using AWS Profile: $AWS_PROFILE"
