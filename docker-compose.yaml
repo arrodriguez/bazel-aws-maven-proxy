@@ -1,0 +1,67 @@
+version: '3.8'
+services:
+  s3proxy:
+    build:
+      context: ./s3proxy
+      dockerfile: Dockerfile
+    container_name: bazel-s3-proxy
+    environment:
+      - AWS_PROFILE=${AWS_PROFILE:-default}
+      - AWS_REGION=${AWS_REGION:-us-west-2}
+      - S3_BUCKET_NAME=${S3_BUCKET_NAME}
+      - PROXY_PORT=${PROXY_PORT:-9000}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - REFRESH_INTERVAL=${REFRESH_INTERVAL:-300}
+    ports:
+      - "${PROXY_PORT:-9000}:${PROXY_PORT:-9000}"
+    volumes:
+      - ${HOME}/.aws/credentials:/root/.aws/credentials:ro
+      - ${HOME}/.aws/config:/root/.aws/config:ro
+      - ${HOME}/.aws/sso/cache:/root/.aws/sso/cache:rw
+      - maven-cache:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${PROXY_PORT:-9000}/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+  
+  credential-monitor:
+    build:
+      context: ./credential-monitor
+      dockerfile: Dockerfile
+    container_name: aws-credential-monitor
+    environment:
+      - AWS_PROFILE=${AWS_PROFILE:-default}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    volumes:
+      - ${HOME}/.aws/credentials:/root/.aws/credentials:ro
+      - ${HOME}/.aws/config:/root/.aws/config:ro
+      - ${HOME}/.aws/sso/cache:/root/.aws/sso/cache:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped
+    depends_on:
+      - s3proxy
+  
+  credential-renewer:
+    build:
+      context: ./credential-renewer
+      dockerfile: Dockerfile
+      platforms:
+        - "linux/amd64"
+    container_name: credential-renewer
+    environment:
+      - AWS_PROFILE=${AWS_PROFILE:-default}
+      - CHECK_INTERVAL=${CHECK_INTERVAL:-900}
+      - RENEWAL_THRESHOLD=${RENEWAL_THRESHOLD:-3600}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    volumes:
+      - ${HOME}/.aws/credentials:/root/.aws/credentials:rw
+      - ${HOME}/.aws/config:/root/.aws/config:rw
+      - ${HOME}/.aws/sso/cache:/root/.aws/sso/cache
+    restart: unless-stopped
+
+volumes:
+  maven-cache:
+    name: bazel-aws-maven-proxy_maven-cache

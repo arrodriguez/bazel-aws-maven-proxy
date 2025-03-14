@@ -339,3 +339,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 **Bazel AWS Maven Proxy** | Making Bazel and AWS SSO work together seamlessly
 
 Aws S3 Maven proxy for bazel
+

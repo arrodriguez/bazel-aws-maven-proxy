@@ -13,7 +13,7 @@ COPY package-lock.json ./
 RUN npm ci --only=production
 
 # Copy source code
-COPY aws-sso-credential-monitor.js ./
+COPY aws_sso_credential_monitor.js ./
 
 # Run as non-root user for better security
 USER node
@@ -22,4 +22,5 @@ USER node
 ENV NODE_ENV=production
 
 # Start the credential monitor
-CMD ["node", "aws-sso-credential-monitor.js"]
+CMD ["node", "aws_sso_credential_monitor.js"]
+
