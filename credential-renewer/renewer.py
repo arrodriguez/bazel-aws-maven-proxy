@@ -19,6 +19,8 @@ AWS_PROFILE = os.environ.get('AWS_PROFILE', 'default')
 SSO_CACHE_DIR = os.path.expanduser('~/.aws/sso/cache')
 CHECK_INTERVAL = int(os.environ.get('CHECK_INTERVAL', '900'))  # 15 minutes by default
 RENEWAL_THRESHOLD = int(os.environ.get('RENEWAL_THRESHOLD', '3600'))  # 1 hour by default
+LOGIN_NOTIFICATION_FILE = os.environ.get('LOGIN_NOTIFICATION_FILE', '/data/login_required.txt')
+
 
 def find_sso_token_file():
     """Find the latest SSO token file in the cache directory."""
@@ -35,6 +37,57 @@ def find_sso_token_file():
     # Get the most recently modified file
     latest_file = max(json_files, key=lambda f: f.stat().st_mtime)
     return latest_file
+
+
+def perform_sso_login():
+    """Create a notification file that informs the user to run AWS SSO login."""
+    try:
+        logger.info("Creating login notification file")
+        
+        # Get SSO configuration
+        config = configparser.ConfigParser()
+        config.read(os.path.expanduser('~/.aws/config'))
+        
+        profile_section = f"profile {AWS_PROFILE}"
+        if profile_section not in config:
+            profile_section = AWS_PROFILE  # Try without the "profile " prefix
+        
+        if profile_section in config:
+            sso_start_url = config[profile_section].get("sso_start_url", "unknown")
+            sso_region = config[profile_section].get("sso_region", "unknown")
+        else:
+            sso_start_url = "unknown"
+            sso_region = "unknown"
+            
+        # Create notification message
+        message = f"""
+===========================================================================
+AWS SSO LOGIN REQUIRED
+
+Your AWS SSO credentials have expired or will expire soon. Please run the 
+following command in a terminal:
+
+    aws sso login --profile {AWS_PROFILE}
+
+This will open a browser window where you can complete the SSO login process.
+After successful login, the credential monitor will automatically detect the
+new credentials and update the proxy.
+
+SSO Start URL: {sso_start_url}
+SSO Region: {sso_region}
+===========================================================================
+"""
+        
+        # Write notification file
+        Path(os.path.dirname(LOGIN_NOTIFICATION_FILE)).mkdir(parents=True, exist_ok=True)
+        with open(LOGIN_NOTIFICATION_FILE, 'w') as f:
+            f.write(message)
+            
+        logger.info(f"Login notification created at {LOGIN_NOTIFICATION_FILE}")
+        return True
+    except Exception as e:
+        logger.error(f"Error creating login notification: {str(e)}")
+        return False
 
 def check_token_expiration():
     """Check if the SSO token is nearing expiration."""
@@ -70,32 +123,6 @@ def check_token_expiration():
     except Exception as e:
         logger.error(f"Error checking token expiration: {str(e)}")
         return True
-
-def perform_sso_login():
-    """Perform AWS SSO login using the configured profile."""
-    try:
-        logger.info(f"Performing AWS SSO login for profile {AWS_PROFILE}")
-        
-        # Ensure SSO cache directory exists
-        os.makedirs(SSO_CACHE_DIR, exist_ok=True)
-        
-        # Run AWS SSO login command
-        result = subprocess.run(
-            ["aws", "sso", "login", "--profile", AWS_PROFILE],
-            capture_output=True,
-            text=True,
-            check=False
-        )
-        
-        if result.returncode == 0:
-            logger.info("AWS SSO login successful")
-            return True
-        else:
-            logger.error(f"AWS SSO login failed: {result.stderr}")
-            return False
-    except Exception as e:
-        logger.error(f"Error during AWS SSO login: {str(e)}")
-        return False
 
 def main():
     """Main function to periodically check and renew AWS SSO credentials."""

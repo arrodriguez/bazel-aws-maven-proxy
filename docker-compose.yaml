@@ -60,8 +60,9 @@ services:
       - ${HOME}/.aws/credentials:/root/.aws/credentials:rw
       - ${HOME}/.aws/config:/root/.aws/config:rw
       - ${HOME}/.aws/sso/cache:/root/.aws/sso/cache
+      - ./data:/app/data
     restart: unless-stopped
-
+  
 volumes:
   maven-cache:
     name: bazel-aws-maven-proxy_maven-cache
